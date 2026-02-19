@@ -17,6 +17,21 @@ class ArxivSpider(scrapy.Spider):
     name = "arxiv"  # 爬虫名称
     allowed_domains = ["arxiv.org"]  # 允许爬取的域名
 
+    def _matches_target_categories(self, paper_categories):
+        """
+        判断论文分类是否匹配目标分类。
+        支持两种匹配：
+        1) 精确匹配：如 cs.CV == cs.CV
+        2) 顶级分类匹配：如 target=astro-ph 可匹配 astro-ph.GA/astro-ph.CO
+        """
+        for paper_cat in paper_categories:
+            for target_cat in self.target_categories:
+                if paper_cat == target_cat:
+                    return True
+                if "." not in target_cat and paper_cat.startswith(f"{target_cat}."):
+                    return True
+        return False
+
     def parse(self, response):
         # 提取每篇论文的信息
         anchors = []
@@ -60,7 +75,7 @@ class ArxivSpider(scrapy.Spider):
                 
                 # 检查论文分类是否与目标分类有交集
                 paper_categories = set(categories_in_paper)
-                if paper_categories.intersection(self.target_categories):
+                if self._matches_target_categories(paper_categories):
                     yield {
                         "id": arxiv_id,
                         "categories": list(paper_categories),  # 添加分类信息用于调试
